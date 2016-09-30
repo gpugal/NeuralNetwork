@@ -11,6 +11,7 @@ import org.cnn.data.DigitDataGenerator;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Random;
 import org.cnn.utility.CostFunction;
 import org.cnn.utility.QuadraticCost;
 import org.jblas.DoubleMatrix;
@@ -25,6 +26,8 @@ public class Network {
     private final int NUM_LAYER;
     private final List<DoubleMatrix> WEIGHTS;
     private final List<DoubleMatrix> BIASES;
+    private final Random RAND = new Random();
+
     private LinkedList<DoubleMatrix> wDelta;
     private LinkedList<DoubleMatrix> bDelta;
     private CostFunction cost;
@@ -32,7 +35,7 @@ public class Network {
     public Network(int size[]) {
         this(size, new QuadraticCost());
     }
-    
+
     public Network(int size[], CostFunction cost) {
         NUM_LAYER = size.length;
         WEIGHTS = new ArrayList<>(NUM_LAYER - 1);
@@ -41,18 +44,25 @@ public class Network {
         for (int i = 0; i < NUM_LAYER - 1; ++i) {
             int n = size[i + 1];
             int m = size[i];
-            WEIGHTS.add(DoubleMatrix.randn(n, m));
+            WEIGHTS.add(randn(n, m));
         }
-        BIASES = new ArrayList<>(NUM_LAYER - 1);
 
+        BIASES = new ArrayList<>(NUM_LAYER - 1);
         for (int i = 1; i < NUM_LAYER; ++i) {
             int m = size[i];
             BIASES.add(DoubleMatrix.randn(m, 1));
         }
     }
-    
-    
-    
+
+    private DoubleMatrix randn(int rows, int columns) {
+        double rSqrt = Math.sqrt(rows);
+        DoubleMatrix m = new DoubleMatrix(rows, columns);
+        for (int i = 0; i < rows * columns; i++) {
+            m.data[i] = (double) (RAND.nextGaussian() / rSqrt);
+        }
+        return m;
+    }
+
     private DoubleMatrix feedForward(DoubleMatrix x) {
         DoubleMatrix a = x;
         for (int i = 0; i < NUM_LAYER - 1; ++i) {
@@ -61,20 +71,20 @@ public class Network {
         }
         return a;
     }
-    
+
     private int evaluate(DigitDataGenerator testDG) {
-         testDG.shuffle();
-         int size = testDG.getDataSetSize();
-         int sum = 0;
-         TrainingData testData = testDG.getTrainingData(size);         
-         for (int i = 0; i < testData.size(); ++i) {
-             DoubleMatrix x = new DoubleMatrix(testData.getInputs(i));
-             DoubleMatrix y = new DoubleMatrix(testData.getOutputs(i));
-             sum += (feedForward(x).argmax() == y.argmax()) ? 1 : 0;
-         }
-         return sum;
+        testDG.shuffle();
+        int size = testDG.getDataSetSize();
+        int sum = 0;
+        TrainingData testData = testDG.getTrainingData(size);
+        for (int i = 0; i < testData.size(); ++i) {
+            DoubleMatrix x = new DoubleMatrix(testData.getInputs(i));
+            DoubleMatrix y = new DoubleMatrix(testData.getOutputs(i));
+            sum += (feedForward(x).argmax() == y.argmax()) ? 1 : 0;
+        }
+        return sum;
     }
-    
+
     private void backProb(DoubleMatrix x, DoubleMatrix y) {
         bDelta = new LinkedList<>();
         wDelta = new LinkedList<>();
@@ -104,10 +114,6 @@ public class Network {
         }
     }
 
-    private DoubleMatrix costDerivative(DoubleMatrix a, DoubleMatrix y) {
-        return a.sub(y);
-    }
-
     private void updateMiniBatch(TrainingData miniBatch, double eta) {
         List<DoubleMatrix> nablaB = new ArrayList<>(NUM_LAYER - 1);
         List<DoubleMatrix> nablaW = new ArrayList<>(NUM_LAYER - 1);
@@ -134,8 +140,8 @@ public class Network {
         }
     }
 
-    public void stochasticGradientDescent(DigitDataGenerator trdg, int epochs, 
-                int miniBatchSize, double eta, DigitDataGenerator tedg) {
+    public void stochasticGradientDescent(DigitDataGenerator trdg, int epochs,
+            int miniBatchSize, double eta, DigitDataGenerator tedg) {
         for (int i = 0; i < epochs; ++i) {
             trdg.shuffle();
             int nMb = trdg.getDataSetSize() / miniBatchSize;
